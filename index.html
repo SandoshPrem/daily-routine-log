@@ -4,6 +4,9 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Daily Health Log</title>
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#0b6e4f">
+<link rel="apple-touch-icon" href="icon-192.png">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
 <style>
 :root{--bg:#f6f7f9;--card:#fff;--text:#1b1f24;--mute:#5d6672;--line:#dde1e6;--pri:#0b6e4f;--priText:#fff;--red:#c62828;--amb:#b26a00;--ok:#1b7f3b;--chip:#eef1f4;
@@ -127,6 +130,7 @@ $('unlock').onclick=function(){var v=$('pass').value.trim();if(!v)return;PASS=v;
 setInterval(function(){if(!document.hidden&&PASS)sync()},20000);
 document.addEventListener('visibilitychange',function(){if(!document.hidden)sync()});
 sync();
+if('serviceWorker' in navigator){window.addEventListener('load',function(){navigator.serviceWorker.register('sw.js').catch(function(){})})}
 
 function flag(type,e){
   if(type==='sugar'){var v=e.sugar;if(v==null)return'';return(v<70||v>180)?'red':(v>140?'amb':'ok')}
