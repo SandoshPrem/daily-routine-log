@@ -43,6 +43,7 @@ nav button.on{color:var(--pri);box-shadow:inset 0 3px 0 var(--pri)}
 textarea{height:220px;font:14px/1.4 ui-monospace,Menlo,monospace}
 #toast{position:fixed;left:50%;top:calc(env(safe-area-inset-top,0px) + 12px);transform:translateX(-50%);background:var(--ok);color:var(--priText);padding:12px 20px;border-radius:12px;font-weight:700;opacity:0;transition:opacity .3s;pointer-events:none;z-index:9}
 #toast.show{opacity:1}
+.sumrow{margin:0 0 10px}.sumrow .chip{background:var(--pri);color:var(--priText)}.sumrow small{color:inherit;opacity:.85}
 .empty{text-align:center;color:var(--mute);padding:30px 0}
 </style>
 </head>
@@ -55,7 +56,7 @@ textarea{height:220px;font:14px/1.4 ui-monospace,Menlo,monospace}
 
 <section id="v-add">
 <div class="card">
-<label for="dt">Date</label>
+<label for="dt">Date <span id="dtshow" style="color:var(--mute);font-weight:400"></span></label>
 <input type="date" id="dt">
 <label for="sugar">Blood sugar (mg/dL)</label>
 <div class="row"><input type="number" inputmode="decimal" id="sugar" placeholder="e.g. 110">
@@ -104,10 +105,12 @@ textarea{height:220px;font:14px/1.4 ui-monospace,Menlo,monospace}
 <script>
 var SUPABASE_URL='https://cnttyholsqltuvvrltkz.supabase.co', SUPABASE_KEY='sb_publishable_TSd58cPQPAgbsoZJ_4lk3w_R1OwuRzV';
 (function(){
-var KEY='healthlog.v1', DAY=86400000, data=[], chart=null, metric='sugar', range=90;
+var KEY='healthlog.v1', DAY=86400000, data=[], chart=null, metric='sugar', range=7;
 var $=function(id){return document.getElementById(id)};
 function nowLocal(){var d=new Date();d.setMinutes(d.getMinutes()-d.getTimezoneOffset());return d.toISOString().slice(0,10)}
 $('dt').value=nowLocal();
+function showDt(){var v=$('dt').value;$('dtshow').textContent=v?'· '+fmtDay(Date.parse(v+'T12:00:00')):''}
+$('dt').onchange=showDt;showDt();
 var CFG={url:SUPABASE_URL,key:SUPABASE_KEY},PASS='';
 try{PASS=localStorage.getItem('hl.pass')||''}catch(e){}
 function refresh(){var b=document.querySelector('nav .on'),v=b&&b.getAttribute('data-v');if(v==='hist')renderHist();if(v==='chart')renderChart();if(v==='exp')$('csv').value=csvText()}
@@ -147,10 +150,11 @@ $('save').onclick=function(){
   if((e.sys==null)!==(e.dia==null)){alert('Please enter both BP numbers.');return}
   put(e);
   ['sugar','sys','dia','hr','urine','note'].forEach(function(i){$(i).value=''});
-  $('dt').value=nowLocal();toast();
+  $('dt').value=nowLocal();showDt();toast();
 };
 
-function fmtDay(t){return new Date(t).toLocaleDateString(undefined,{weekday:'short',day:'numeric',month:'short',year:'numeric'})}
+var MON=['JAN','FEB','MAR','APR','MAY','JUN','JUL','AUG','SEP','OCT','NOV','DEC'];
+function fmtDay(t){var d=new Date(t);return d.getDate()+' '+MON[d.getMonth()]+' '+d.getFullYear()}
 function fmtTime(t){return new Date(t).toLocaleTimeString(undefined,{hour:'2-digit',minute:'2-digit'})}
 function esc(s){return String(s).replace(/[&<>"]/g,function(c){return{'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]})}
 
@@ -158,11 +162,14 @@ function renderHist(){
   var cut=Date.now()-90*DAY,list=data.filter(function(e){return e.t>=cut}).sort(function(a,b){return (b.t-a.t)||((Number(b.id)||0)-(Number(a.id)||0))});
   var h=$('hist');
   if(!list.length){h.innerHTML='<div class="empty">No entries in the last 3 months yet.</div>';return}
-  var out='',lastDay='',tot={};
-  list.forEach(function(e){var k=new Date(e.t).toDateString();if(e.urine!=null)tot[k]=(tot[k]||0)+e.urine});
+  var out='',lastDay='',g={};
+  list.forEach(function(e){var k=new Date(e.t).toDateString(),x=g[k]||(g[k]={s:[],a:[],b:[],h:[],u:0});if(e.sugar!=null)x.s.push(e.sugar);if(e.sys!=null){x.a.push(e.sys);x.b.push(e.dia)}if(e.hr!=null)x.h.push(e.hr);if(e.urine!=null)x.u+=e.urine});
+  function av(a){return Math.round(a.reduce(function(p,c){return p+c},0)/a.length)}
+  function mm(a){return a.length>1?' <small>('+Math.min.apply(null,a)+'–'+Math.max.apply(null,a)+')</small>':''}
+  function summ(x){var c='';if(x.s.length)c+='<span class="chip">🩸 avg '+av(x.s)+mm(x.s)+'</span>';if(x.a.length)c+='<span class="chip">BP avg '+av(x.a)+'/'+av(x.b)+'</span>';if(x.h.length)c+='<span class="chip">❤️ avg '+av(x.h)+mm(x.h)+'</span>';if(x.u)c+='<span class="chip">💧 total '+x.u+' ml</span>';return'<div class="chips sumrow">'+c+'</div>'}
   list.forEach(function(e){
     var k=new Date(e.t).toDateString();
-    if(k!==lastDay){lastDay=k;out+='<div class="day">'+fmtDay(e.t)+(tot[k]?' · Urine total '+tot[k]+' ml':'')+'</div>'}
+    if(k!==lastDay){lastDay=k;out+='<div class="day">'+fmtDay(e.t)+'</div>'+summ(g[k])}
     var c='';
     if(e.sugar!=null)c+='<span class="chip '+flag('sugar',e)+'">🩸 '+e.sugar+' <small>'+esc(e.kind||'')+'</small></span>';
     if(e.sys!=null)c+='<span class="chip '+flag('bp',e)+'">BP '+e.sys+'/'+e.dia+'</span>';
@@ -189,10 +196,12 @@ function renderChart(){
   var cut=Date.now()-range*DAY,list=data.filter(function(e){return e.t>=cut}).sort(function(a,b){return a.t-b.t});
   var cs=getComputedStyle(document.documentElement),txt=cs.getPropertyValue('--mute').trim(),grid=cs.getPropertyValue('--line').trim();
   var labels=[],sets=[],type='line';
-  function lbl(t){return new Date(t).toLocaleDateString(undefined,{day:'numeric',month:'short'})}
-  if(metric==='sugar'){var s=list.filter(function(e){return e.sugar!=null});labels=s.map(function(e){return lbl(e.t)});sets=[{label:'Sugar mg/dL',data:s.map(function(e){return e.sugar}),borderColor:'#e53935',backgroundColor:'#e53935',tension:.25}]}
-  if(metric==='bp'){var b=list.filter(function(e){return e.sys!=null});labels=b.map(function(e){return lbl(e.t)});sets=[{label:'SYS',data:b.map(function(e){return e.sys}),borderColor:'#1e88e5',backgroundColor:'#1e88e5',tension:.25},{label:'DIA',data:b.map(function(e){return e.dia}),borderColor:'#8e24aa',backgroundColor:'#8e24aa',tension:.25}]}
-  if(metric==='hr'){var r=list.filter(function(e){return e.hr!=null});labels=r.map(function(e){return lbl(e.t)});sets=[{label:'Heart rate bpm',data:r.map(function(e){return e.hr}),borderColor:'#fb8c00',backgroundColor:'#fb8c00',tension:.25}]}
+  function lbl(t){return fmtDay(t).slice(0,-5)}
+  function daily(f){var m={},o=[];list.forEach(function(e){var v=f(e);if(v==null)return;var k=e.d||new Date(e.t).toDateString();if(!m[k]){m[k]={t:e.t,v:[]};o.push(k)}m[k].v.push(v)});return o.map(function(k){return m[k]})}
+  function avg(a){return Math.round(a.reduce(function(p,c){return p+c},0)/a.length*10)/10}
+  function ln(label,days,fn,col,dash){return{label:label,data:days.map(fn),borderColor:col,backgroundColor:col,tension:.25,borderDash:dash||[],borderWidth:dash?1.5:3,pointRadius:dash?0:3}}
+  if(metric==='sugar'||metric==='hr'){var days=daily(function(e){return metric==='sugar'?e.sugar:e.hr});labels=days.map(function(x){return lbl(x.t)});var col=metric==='sugar'?'#e53935':'#fb8c00',nm=metric==='sugar'?'Sugar':'Heart rate';sets=[ln(nm+' daily avg',days,function(x){return avg(x.v)},col),ln('Highest',days,function(x){return Math.max.apply(null,x.v)},col,[5,4]),ln('Lowest',days,function(x){return Math.min.apply(null,x.v)},col,[2,3])]}
+  if(metric==='bp'){var sy=daily(function(e){return e.sys}),di=daily(function(e){return e.dia});labels=sy.map(function(x){return lbl(x.t)});sets=[ln('SYS daily avg',sy,function(x){return avg(x.v)},'#1e88e5'),ln('DIA daily avg',di,function(x){return avg(x.v)},'#8e24aa')]}
   if(metric==='urine'){type='bar';var m={};list.forEach(function(e){if(e.urine!=null){var k=lbl(e.t);m[k]=(m[k]||0)+e.urine}});labels=Object.keys(m);sets=[{label:'Urine ml / day',data:labels.map(function(k){return m[k]}),backgroundColor:'#26a69a'}]}
   if(chart){chart.destroy();chart=null}
   $('cnote').innerHTML=labels.length?'':'<div class="empty">No data in this period.</div>';
