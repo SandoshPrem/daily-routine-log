@@ -112,8 +112,7 @@ function nowLocal(){var d=new Date();d.setMinutes(d.getMinutes()-d.getTimezoneOf
 $('dt').value=nowLocal();
 function showDt(){var v=$('dt').value;$('dtshow').textContent=v?'· '+fmtDay(Date.parse(v+'T12:00:00')):''}
 $('dt').onchange=showDt;showDt();
-var CFG={url:SUPABASE_URL,key:SUPABASE_KEY},PASS='';
-try{PASS=localStorage.getItem('hl.pass')||''}catch(e){}
+var CFG={url:SUPABASE_URL,key:SUPABASE_KEY},PASS='family';
 function refresh(){var b=document.querySelector('nav .on'),v=b&&b.getAttribute('data-v');if(v==='hist')renderHist();if(v==='chart')renderChart();if(v==='exp')$('csv').value=csvText()}
 function rpc(fn,body){
   return fetch(CFG.url.replace(/\/$/,'')+'/rest/v1/rpc/'+fn,{method:'POST',headers:{'Content-Type':'application/json',apikey:CFG.key},body:JSON.stringify(body)}).then(function(r){return r.text().then(function(t){var j=null;try{j=JSON.parse(t)}catch(e){}if(!r.ok){var m=(j&&j.message)||t,er=new Error(m);er.bad=/passcode/i.test(m);throw er}return j})})
@@ -199,8 +198,8 @@ function renderChart(){
   function lbl(t){return fmtDay(t).slice(0,-5)}
   function daily(f){var m={},o=[];list.forEach(function(e){var v=f(e);if(v==null)return;var k=e.d||new Date(e.t).toDateString();if(!m[k]){m[k]={t:e.t,v:[]};o.push(k)}m[k].v.push(v)});return o.map(function(k){return m[k]})}
   function avg(a){return Math.round(a.reduce(function(p,c){return p+c},0)/a.length*10)/10}
-  function ln(label,days,fn,col,dash){return{label:label,data:days.map(fn),borderColor:col,backgroundColor:col,tension:.25,borderDash:dash||[],borderWidth:dash?1.5:3,pointRadius:dash?0:3}}
-  if(metric==='sugar'||metric==='hr'){var days=daily(function(e){return metric==='sugar'?e.sugar:e.hr});labels=days.map(function(x){return lbl(x.t)});var col=metric==='sugar'?'#e53935':'#fb8c00',nm=metric==='sugar'?'Sugar':'Heart rate';sets=[ln(nm+' daily avg',days,function(x){return avg(x.v)},col),ln('Highest',days,function(x){return Math.max.apply(null,x.v)},col,[5,4]),ln('Lowest',days,function(x){return Math.min.apply(null,x.v)},col,[2,3])]}
+  function ln(label,days,fn,col,dash){return{label:label,data:days.map(fn),borderColor:col,backgroundColor:col,tension:.25,borderDash:dash||[],borderWidth:dash?2:3,pointRadius:dash?0:3}}
+  if(metric==='sugar'||metric==='hr'){var days=daily(function(e){return metric==='sugar'?e.sugar:e.hr});labels=days.map(function(x){return lbl(x.t)});var nm=metric==='sugar'?'Sugar':'Heart rate';sets=[ln(nm+' daily avg',days,function(x){return avg(x.v)},'#2e7d32'),ln('Highest',days,function(x){return Math.max.apply(null,x.v)},'#e53935',[6,4]),ln('Lowest',days,function(x){return Math.min.apply(null,x.v)},'#1e88e5',[6,4])]}
   if(metric==='bp'){var sy=daily(function(e){return e.sys}),di=daily(function(e){return e.dia});labels=sy.map(function(x){return lbl(x.t)});sets=[ln('SYS daily avg',sy,function(x){return avg(x.v)},'#1e88e5'),ln('DIA daily avg',di,function(x){return avg(x.v)},'#8e24aa')]}
   if(metric==='urine'){type='bar';var m={};list.forEach(function(e){if(e.urine!=null){var k=lbl(e.t);m[k]=(m[k]||0)+e.urine}});labels=Object.keys(m);sets=[{label:'Urine ml / day',data:labels.map(function(k){return m[k]}),backgroundColor:'#26a69a'}]}
   if(chart){chart.destroy();chart=null}
